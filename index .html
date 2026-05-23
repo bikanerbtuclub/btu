@@ -1,0 +1,595 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>BTU Bikaner – Ultimate Student Portal</title>
+
+<meta name="google-site-verification" content="yycgc1p5UUWFE_G8mQPNDVEStOKSmZA-RvYkx2xQinM" />
+
+<meta name="description" content="Official BTU Bikaner Student Portal. Access engineering mathematics notes, BTU past papers PYQs, syllabus structures, and join technical cyber clubs."/>
+<meta name="keywords" content="BTU Bikaner, Bikaner Technical University, BTU Student Portal, BTU Notes, BTU Cyber Club, btuclubbikaner, UCET Bikaner"/>
+<meta name="author" content="Mehul Jangid"/>
+<meta name="robots" content="index, follow"/>
+
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
+
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
+
+<script async defer src="https://apis.google.com/js/api.js"></script>
+<script async defer src="https://accounts.google.com/gsi/client"></script>
+
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+html, body {
+  max-width: 100%;
+  overflow-x: hidden !important;
+  scroll-behavior: smooth;
+}
+body{transition:background 0.2s, color 0.2s;font-family:'Inter',sans-serif;-webkit-font-smoothing:antialiased}
+::-webkit-scrollbar{width:6px}::-webkit-scrollbar-thumb{background:#cbd5e1;border-radius:10px}
+@keyframes ticker { 0% { transform: translateX(0); } 100% { transform: translateX(-50%); } }
+.hov-card{transition:all 0.3s}.hov-card:hover{transform:translateY(-5px);box-shadow:0 15px 30px rgba(37,99,235,0.12)!important}
+select option{background:#fff;color:#0f172a}
+input,select,textarea{font-family:inherit}
+</style>
+</head>
+<body>
+<div id="root" style="max-width:100%; overflow-x:hidden;"></div>
+<script type="text/babel">
+const {useState,useEffect,useRef} = React;
+const firebaseConfig = {
+  apiKey: "AIzaSyAM4Yna47LyIc1XTNoxAv04guzrUCRRObw",
+  authDomain: "tu-portial.firebaseapp.com",
+  databaseURL: "https://tu-portial-default-rtdb.firebaseio.com",
+  projectId: "tu-portial",
+  storageBucket: "tu-portial.firebasestorage.app",
+  messagingSenderId: "2782537681",
+  appId: "1:2782537681:web:15aecfcb0650e51e3ae2f0"
+};
+if (!firebase.apps.length) { firebase.initializeApp(firebaseConfig); }
+const db = firebase.database();
+
+const ADMIN_PASS = "btu@admin2025";
+const CATS=[
+  {key:"clubs",label:"Student Clubs",icon:"🏛️"},
+  {key:"cultural",label:"Cultural Events",icon:"🎭"},
+  {key:"technical",label:"Technical Events",icon:"⚙️"},
+  {key:"sports",label:"Sports Events",icon:"⚽"},
+  {key:"academic",label:"Academic Events",icon:"📚"},
+];
+const SUBJECT_FILTERS = ["All Materials", "Engineering Mathematics", "Engineering Physics", "Mechanical Engineering", "Computer Programming", "BTU Past Papers (PYQs)", "Syllabus Structures"];
+
+function App(){
+  const [page,setPage] = useState("home");
+  const [cat,setCat] = useState("clubs");
+  const [darkMode, setDarkMode] = useState(() => localStorage.getItem("btu_premium_dark") === "true");
+  const [user,setUser] = useState(()=> { try{return JSON.parse(localStorage.getItem("btu_user"))}catch(e){return null} });
+  
+  const [data,setData] = useState({clubs:{}, cultural:{}, technical:{}, sports:{}, academic:{}, notices:{}});
+  const [users,setUsers] = useState([]);
+  const [fbs,setFbs] = useState([]);
+  const [regs,setRegs] = useState({});
+  const [notes,setNotes] = useState([]);
+  const [settings,setSettings] = useState({waNumber:"919876543210",gformUrl:"",waGroup:"",siteName:"BTU Student Portal", igPrimary:"btu_bikaner", igSecondary:"btu__official", igClubs:"btu.cet", igSports:"btubikaner", homeHeroImg:"",supportEmail:"Bikanerbtuclub@gmail.com",phoneHelpline:"0151-2220000"});
+  const [modal,setModal] = useState(null);
+
+  const C_BG = darkMode ? "#0f172a" : "#f8fafc";
+  const C_CARD = darkMode ? "#1e293b" : "#ffffff";
+  const C_TXT = darkMode ? "#f8fafc" : "#0f172a";
+  const C_MUT = darkMode ? "#94a3b8" : "#64748b";
+  const C_BDR = darkMode ? "#334155" : "#e2e8f0";
+  const C_DRK = darkMode ? "#334155" : "#1e293b";
+  const P = "#2563eb"; const SEC = "#d97706"; const gCl = "#16a34a";
+
+  useEffect(() => {
+    document.body.style.background = C_BG;
+    document.body.style.color = C_TXT;
+    localStorage.setItem("btu_premium_dark", darkMode);
+  }, [darkMode, C_BG, C_TXT]);
+
+  useEffect(() => {
+    db.ref("portal_data").on("value", snap => { if(snap.val()) setData(snap.val()); else setData({clubs:{}, cultural:{}, technical:{}, sports:{}, academic:{}, notices:{}}); });
+    db.ref("portal_users").on("value", snap => { const v = snap.val(); setUsers(v ? Object.keys(v).map(k => ({...v[k], firebaseKey: k})) : []); });
+    db.ref("portal_fbs").on("value", snap => { const v = snap.val(); setFbs(v ? Object.keys(v).map(k => ({...v[k], firebaseKey: k})).reverse() : []); });
+    db.ref("portal_regs").on("value", snap => { if(snap.val()) setRegs(snap.val()); });
+    db.ref("portal_notes").on("value", snap => { const v = snap.val(); setNotes(v ? Object.keys(v).map(k => ({...v[k], firebaseKey: k})).reverse() : []); });
+    db.ref("portal_settings").on("value", snap => { if(snap.val()) setSettings(snap.val()); });
+    return () => db.ref().off();
+  }, []);
+
+  const loginUser = u=>{setUser(u); localStorage.setItem("btu_user", JSON.stringify(u));};
+  const logout = ()=>{ localStorage.removeItem("btu_user"); setUser(null); setPage("home");};
+  const nav = (p,c)=>{setPage(p); if(c) setCat(c); window.scrollTo(0,0);};
+  const register = (catKey, id)=>{
+    if(!user){alert("Pehle Login ya Sign Up karo!"); return;}
+    const k=`${catKey}_${id}`, ex=regs[k]||[];
+    if(ex.includes(user.id)){alert("Already Registered!"); return;}
+    db.ref(`portal_regs/${k}`).set([...ex, user.id]);
+    alert("🎉 Event Registration Successful!");
+  };
+  const isReg=(catKey,id)=>!!user&&(regs[`${catKey}_${id}`]||[]).includes(user.id);
+  const waGroup = settings.waGroup || "";
+
+  const inpS={width:"100%",background:C_CARD,border:`1px solid ${C_BDR}`,borderRadius:10,padding:"12px 16px",color:C_TXT,fontSize:"0.92rem",outline:"none",marginBottom:"1rem"};
+  const lblS={display:"block",fontWeight:600,fontSize:"0.8rem",color:C_TXT,marginBottom:6,textTransform:"uppercase"};
+  const Btn=(bg,col="#fff")=>({background:bg,color:col,border:"none",borderRadius:10,padding:"10px 22px",fontWeight:700,fontSize:"0.88rem",cursor:"pointer",boxShadow:"0 2px 4px rgba(0,0,0,0.05)"});
+
+  return (
+    <div style={{minHeight:"100vh",color:C_TXT, width:"100%", overflowX:"hidden"}}>
+      <div style={{background:C_DRK,color:"#fff",padding:"8px 1.5rem",display:"flex",justifyContent:"space-between",alignItems:"center",fontSize:"0.75rem",flexWrap:"wrap",gap:10, width:"100%"}}>
+        <div style={{display:"flex",gap:16,alignItems:"center", flexWrap:"wrap"}}>
+          <span>📧 {settings.supportEmail || "Bikanerbtuclub@gmail.com"}</span> | <span>📞 {settings.phoneHelpline || "0151-2220000"}</span> | 
+          <a href={`https://instagram.com/${settings.igPrimary}`} target="_blank" style={{color:"#fda4af",textDecoration:"none",fontWeight:600}}>📸 @{settings.igPrimary}</a>
+          {waGroup && <><span style={{opacity:0.3}}>|</span><a href={waGroup} target="_blank" style={{color:"#4ade80",textDecoration:"none"}}>💬 WhatsApp Group</a></>}
+        </div>
+       
+        <div style={{display:"flex",gap:14,alignItems:"center",fontWeight:600, flexWrap:"wrap"}}>
+          <button onClick={() => setDarkMode(!darkMode)} style={{background:"none",border:"none",color:"#fff",cursor:"pointer",fontSize:"0.82rem",fontWeight:700}}>{darkMode ? "☀️ Light UI" : "🌙 Dark UI"}</button>
+          <span>|</span>
+          {!user && <><span style={{cursor:"pointer",color:"#60a5fa"}} onClick={()=>nav("login")}>Sign In</span>|<span style={{cursor:"pointer",color:"#4ade80"}} onClick={()=>nav("signup")}>Join Portal</span></>}
+          {user&&!user.admin && <><span style={{color:"#60a5fa",cursor:"pointer"}} onClick={()=>nav("profile")}>⚡ {user.name?.split(" ")[0]}</span>|<span style={{cursor:"pointer",color:"#f87171"}} onClick={logout}>Logout</span></>}
+          {user?.admin && <><span style={{color:"#4ade80",cursor:"pointer"}} onClick={()=>nav("admin")}>👑 Central Admin</span>|<span style={{cursor:"pointer",color:"#f87171"}} onClick={logout}>Logout</span></>}
+        </div>
+      </div>
+
+      <header style={{background:C_CARD,borderBottom:`1px solid ${C_BDR}`,padding:"0 1.5rem",display:"flex",alignItems:"center",justifyContent:"space-between",minHeight:70,position:"sticky",top:0,zIndex:50,flexWrap:"wrap",gap:10, width:"100%"}}>
+     
+        <div style={{display:"flex",alignItems:"center",gap:12,cursor:"pointer", padding:"5px 0"} } onClick={()=>nav("home")}>
+          <div style={{width:44,height:44,background:`linear-gradient(135deg,${P},#1d4ed8)`,borderRadius:12,display:"flex",alignItems:"center",justifyContent:"center",fontSize:"1.4rem",color:"#fff"}}>🎓</div>
+          <div>
+            <div style={{fontWeight:800,fontSize:"1rem",color:darkMode?"#60a5fa":"#1e3a8a"}}>{settings.siteName || "BTU PORTAL"}</div>
+            <div style={{fontWeight:700,fontSize:"0.75rem",color:SEC,letterSpacing:"1px"}}>UNIVERSITY ECOSYSTEM</div>
+          </div>
+        </div>
+        <nav style={{display:"flex",gap:"1.2rem",fontWeight:700,fontSize:"0.88rem", flexWrap:"wrap", padding:"5px 0"}}>
+          <span onClick={()=>nav("home")} style={{cursor:"pointer",color:page==="home"?P:C_MUT}}>Home</span>
+          <span onClick={()=>nav("events")} style={{cursor:"pointer",color:page==="events"?P:C_MUT}}>Events & Clubs</span>
+          <span onClick={()=>nav("notes")} style={{cursor:"pointer",color:page==="notes"?P:C_MUT}}>📄 Materials & PYQs</span>
+          <span onClick={()=>nav("contact")} style={{cursor:"pointer",color:page==="contact"?P:C_MUT}}>Queries</span>
+  
+          {user?.admin && <span onClick={()=>nav("admin")} style={{color:"#7c3aed",cursor:"pointer"}}>🛠 Dashboard</span>}
+        </nav>
+      </header>
+
+      {data.notices && Object.values(data.notices).length>0 && (
+        <div style={{background:darkMode ? "#2d2006" : "#fffbeb",padding:"8px 0",overflow:"hidden",whiteSpace:"nowrap",borderBottom:`1px solid ${C_BDR}`, width:"100%"}}>
+          <div style={{display:"inline-block",animation:"ticker 40s linear infinite",fontSize:"0.83rem",color:SEC,fontWeight:600}}>
+            {Object.keys(data.notices).map(k => ` 🔥 [ALERT NOTICE] ${data.notices[k].text} `).join("     ⚡     ")}
+          </div>
+        </div>
+      )}
+
+      <div style={{padding:"2rem 1.1rem",maxWidth:1200,margin:"0 auto", width:"100%", overflow:"hidden"}}>
+        {page==="home" && <HomePage data={data} nav={nav} settings={settings} cCard={C_CARD} cBdr={C_BDR} cMut={C_MUT} p={P} g={gCl}/>}
+        {page==="events" && <EventsPage data={data} cat={cat} setCat={setCat} user={user} register={register} setModal={setModal} cCard={C_CARD} cBdr={C_BDR} cMut={C_MUT} p={P} regs={regs}/>}
+        {page==="notes" && <NotesPage notes={notes} db={db} user={user} cCard={C_CARD} cBdr={C_BDR} cMut={C_MUT} p={P} lblS={lblS} inpS={inpS} Btn={Btn}/>}
+        {page==="contact" && <ContactPage fbs={fbs} db={db} settings={settings} cCard={C_CARD} cBdr={C_BDR} inpS={inpS} p={P} Btn={Btn}/>}
+        {page==="login" && <LoginPage loginUser={loginUser} nav={nav} users={users} cCard={C_CARD} cBdr={C_BDR} inpS={inpS} p={P} Btn={Btn}/>}
+        {page==="signup" && <SignupPage loginUser={loginUser} nav={nav} users={users} cCard={C_CARD} cBdr={C_BDR} inpS={inpS} lblS={lblS} g={gCl} Btn={Btn}/>}
+  
+        {page==="profile" && user && <ProfilePage user={user} regs={regs} data={data} cCard={C_CARD} cBdr={C_BDR} p={P}/>}
+        {page==="admin" && <AdminPage data={data} users={users} fbs={fbs} regs={regs} notes={notes} db={db} settings={settings} cCard={C_CARD} cBdr={C_BDR} lblS={lblS} inpS={inpS} p={P} sec={SEC} g={gCl} Btn={Btn} cMut={C_MUT}/>}
+      </div>
+      {modal && <DetailModal item={modal} close={()=>setModal(null)} cCard={C_CARD} cBdr={C_BDR} cMut={C_MUT} p={P}/>}
+    </div>
+  );
+}
+
+function HomePage({data,nav,settings,cCard,cBdr,cMut,p,g}){
+  const fallbackImg = "https://images.unsplash.com/photo-1562774053-701939374585?q=80&w=600&auto=format&fit=crop";
+  return (
+    <div style={{width:"100%"}}>
+      <div style={{background:"linear-gradient(135deg,#0f172a 0%,#1e3a8a 60%,#1d4ed8 100%)",color:"#fff",padding:"3.5rem 1.5rem",borderRadius:20,display:"grid",gridTemplateColumns:"repeat(auto-fit, minmax(290px, 1fr))",gap:"2rem",alignItems:"center", width:"100%"}}>
+        <div>
+          <h1 style={{fontSize:"clamp(1.8rem, 4vw, 2.8rem)",fontWeight:800,lineHeight:1.1}}>Bikaner Technical<br/><span style={{color:"#fbbf24"}}>University Hub</span></h1>
+          <p style={{marginTop:15,opacity:0.85,fontSize:"0.95rem"}}>Official Student Center, Club Framework Networks, & High-Capacity Academic Repositories Pipeline.</p>
+          <div style={{display:"flex",gap:12,marginTop:25, flexWrap:"wrap"}}>
+            <button onClick={()=>nav("events","clubs")} style={{background:"#ea580c",color:"#fff",border:"none",padding:"12px 24px",borderRadius:10,fontWeight:700,cursor:"pointer"}}>Explore Clubs →</button>
+            <button onClick={()=>nav("notes")} style={{background:"rgba(255,255,255,0.15)",color:"#fff",border:"1px solid rgba(255,255,255,0.2)",padding:"12px 24px",borderRadius:10,fontWeight:700,cursor:"pointer"}}>📄 Study Materials</button>
+          </div>
+        </div>
+        <div style={{width:"100%",height:240,borderRadius:16,overflow:"hidden",background:"#1e293b"}}>
+          <img src={settings.homeHeroImg || fallbackImg} style={{width:"100%",height:"100%",objectFit:"cover"} } alt="Campus Visual"/>
+        </div>
+      </div>
+      <div style={{marginTop:"3rem", width:"100%"}}>
+        <h2 style={{fontWeight:800,fontSize:"1.4rem",marginBottom:15}}>📸 Consolidated Instagram Live Handles</h2>
+        <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(220px,1fr))",gap:16, width:"100%"}}>
+          {[{t:"Main University ID", h:settings.igPrimary||"btu_bikaner", c:"#e11d48"}, {t:"Alternate Guild Update", h:settings.igSecondary||"btu__official", c:"#ea580c"}, {t:"Campus Clubs Portal", h:settings.igClubs||"btu.cet", c:"#7c3aed"}, {t:"Sports Arena Channel", h:settings.igSports||"btubikaner", c:"#2563eb"}].map((media,i)=>(
+            <a href={`https://instagram.com/${media.h}`} target="_blank" key={i} style={{background:cCard,border:`1px solid ${cBdr}`,borderRadius:16,padding:"1.2rem",textDecoration:"none",display:"block"} } className="hov-card">
+              <div style={{color:media.c,fontWeight:800,fontSize:"0.95rem"}}>@{media.h}</div>
+              <div style={{fontSize:"0.72rem",color:cMut,marginTop:4}}>{media.t}</div>
+            </a>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function EventsPage({data,cat,setCat,user,register,setModal,cCard,cBdr,cMut,p,regs}){
+  const items = data[cat] ? Object.values(data[cat]) : [];
+  return (
+    <div style={{width:"100%"}}>
+      <div style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:"1.5rem",background:cCard,padding:8,borderRadius:12,border:`1px solid ${cBdr}`, width:"100%"}}>
+        {CATS.map(c => <button key={c.key} onClick={()=>setCat(c.key)} style={{padding:"8px 16px",background:cat===c.key?p:"transparent",color:cat===c.key?"#fff":cMut,border:"none",borderRadius:8,fontWeight:700,cursor:"pointer"}}>{c.icon} {c.label}</button>)}
+      </div>
+      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(260px,1fr))",gap:"1.5rem", width:"100%"}}>
+        {items.map(item=>{
+          const isEnrolled = !!user && (regs[`${cat}_${item.id}`]||[]).includes(user.id);
+          return (
+            <div key={item.id} onClick={()=>setModal(item)} style={{background:cCard,border:`1px solid ${cBdr}`,borderRadius:16,overflow:"hidden",cursor:"pointer",padding:"1rem"} } className="hov-card">
+              <div style={{width:"100%",height:140,background:"rgba(37,99,235,0.05)",borderRadius:12,display:"flex",alignItems:"center",justifyContent:"center"}}>
+                {item.photo ? <img src={item.photo} style={{width:"100%",height:"100%",objectFit:"cover",borderRadius:12}} alt=""/> : <span style={{fontSize:"2.5rem"}}>{item.emoji||"🏛️"}</span>}
+              </div>
+              <h3 style={{fontWeight:800,fontSize:"1rem",marginTop:10}}>{item.title}</h3>
+              <p style={{color:cMut,fontSize:"0.78rem",marginTop:4,height:36,overflow:"hidden"}}>{item.desc}</p>
+              {isEnrolled ? <div style={{color:"#16a34a",fontSize:"0.8rem",fontWeight:700,marginTop:10,textAlign:"center"}}>✅ Enrolled Inside Module</div> : <button onClick={(e)=>{e.stopPropagation(); register(cat,item.id);}} style={{background:p,color:"#fff",border:"none",width:"100%",padding:6,borderRadius:8,marginTop:10,fontWeight:700,cursor:"pointer"}}>Register/Join Node</button>}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function NotesPage({notes,db,user,cCard,cBdr,cMut,p,lblS,inpS,Btn}){
+  const [uploading,setUploading] = useState(false);
+  const [noteName,setNoteName]   = useState("");
+  const [noteSubject,setNoteSubject] = useState("Engineering Mathematics");
+  const [sel, setSel] = useState("All Materials");
+  const [sc,setSc] = useState("");
+
+  // Cloud API Token parameters (Replace with your actual keys from Google Cloud Console if needed)
+  const CLIENT_ID = "YOUR_GOOGLE_CLIENT_ID.apps.googleusercontent.com"; 
+  const API_KEY = "YOUR_GOOGLE_API_KEY";
+
+  const handleUpload = (e)=>{
+    const file = e.target.files[0]; if(!file || !noteName.trim()) return;
+    if(file.size > 30*1024*1024){alert("Max size is 30MB!"); return;}
+    setUploading(true);
+    const reader = new FileReader();
+    reader.onload=(ev)=>{
+      db.ref("portal_notes").push({id:Date.now(),name:noteName,subject:noteSubject,fileName:file.name,size:(file.size/(1024*1024)).toFixed(2)+"MB",data:ev.target.result,date:new Date().toLocaleDateString("en-IN"), source:"Local"});
+      setNoteName(""); setUploading(false); alert("✅ Materials Document push complete!");
+    };
+    reader.readAsDataURL(file);
+  };
+
+  // Google Drive Authentication & Cloud Picker Execution Link
+  const handleDrivePick = () => {
+    if(!noteName.trim()) { alert("Please enter a Material Name Title first!"); return; }
+    
+    const tokenClient = google.accounts.oauth2.initTokenClient({
+      client_id: CLIENT_ID,
+      scope: 'https://www.googleapis.com/auth/drive.readonly',
+      callback: (response) => {
+        if (response.error !== undefined) { return; }
+        createPicker(response.access_token);
+      },
+    });
+    tokenClient.requestAccessToken({prompt: 'consent'});
+  };
+
+  const createPicker = (oauthToken) => {
+    const googleView = new google.picker.View(google.picker.ViewId.DOCS);
+    const picker = new google.picker.PickerBuilder()
+        .addView(googleView)
+        .setOAuthToken(oauthToken)
+        .setDeveloperKey(API_KEY)
+        .setCallback((pickerData) => {
+          if (pickerData[google.picker.Response.ACTION] == google.picker.Action.PICKED) {
+            const doc = pickerData[google.picker.Response.DOCUMENTS][0];
+            
+            // Push direct metadata block directly straight down to live cloud databases schema
+            db.ref("portal_notes").push({
+              id: Date.now(),
+              name: noteName,
+              subject: noteSubject,
+              fileName: doc[google.picker.Document.NAME],
+              size: "Drive Storage File",
+              data: doc[google.picker.Document.URL],
+              date: new Date().toLocaleDateString("en-IN"),
+              source: "Google Drive"
+            });
+            setNoteName("");
+            alert("✅ Google Drive Document connection structural stream online!");
+          }
+        })
+        .build();
+    picker.setVisible(true);
+  };
+
+  return (
+    <div style={{width:"100%"}}>
+      {user?.admin && (
+        <div style={{background:cCard,border:`1px solid ${cBdr}`,borderRadius:16,padding:"1.5rem",marginBottom:"2rem", width:"100%"}}>
+          <h4 style={{fontWeight:800,marginBottom:10}}>📤 Deploy Higher-Capacity Archive (Max 30MB Buffer)</h4>
+          <input style={inpS} placeholder="Material Name Title" value={noteName} onChange={e=>setNoteName(e.target.value)}/>
+          <select style={inpS} value={noteSubject} onChange={e=>setNoteSubject(e.target.value)}>{SUBJECT_FILTERS.slice(1).map(s=><option key={s} value={s}>{s}</option>)}</select>
+          
+          <div style={{display:"flex", gap:"10px", flexWrap:"wrap", alignItems:"center"}}>
+            <div>
+              <label style={{...lblS, fontSize:"0.72rem", marginBottom:"4px"}}>Option 1: Upload Local File</label>
+              <input type="file" onChange={handleUpload} disabled={uploading}/>
+            </div>
+            <div style={{borderLeft:`1px solid ${cBdr}`, height:"40px", margin:"0 10px"} }></div>
+            <div>
+              <label style={{...lblS, fontSize:"0.72rem", marginBottom:"4px"}}>Option 2: Cloud Sync Integration</label>
+              <button onClick={handleDrivePick} style={Btn("#1e293b", "#fff")} type="button">📁 Select from Google Drive</button>
+            </div>
+          </div>
+        </div>
+      )}
+      <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:"1rem", width:"100%"}}>{SUBJECT_FILTERS.map(b=><button key={b} onClick={()=>setSel(b)} style={{padding:"6px 12px",background:sel===b?p:cCard,color:sel===b?"#fff":cMut,border:`1px solid ${cBdr}`,borderRadius:8,cursor:"pointer",fontWeight:700,fontSize:"0.8rem"}}>{b}</button>)}</div>
+      <input style={inpS} placeholder="🔍 Filter materials catalog search keys..." value={sc} onChange={e=>setSc(e.target.value)}/>
+      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(260px,1fr))",gap:12, width:"100%"}}>
+        {notes.filter(n=>(sel==="All Materials"||n.subject===sel)&&n.name?.toLowerCase().includes(sc.toLowerCase())).map(note=>(
+          <div key={note.id} style={{background:cCard,border:`1px solid ${cBdr}`,padding:"1rem",borderRadius:12}} className="hov-card">
+            <h4 style={{fontWeight:800,fontSize:"0.9rem"}}>{note.name}</h4>
+            <div style={{display:"flex", justifyContent:"space-between", alignItems:"center"}}>
+               <div style={{fontSize:"0.7rem",color:p,fontWeight:700,marginTop:2}}>{note.subject}</div>
+               {note.source === "Google Drive" && <span style={{background:"#16a34a", color:"#fff", fontSize:"10px", padding:"2px 6px", borderRadius:"4px", fontWeight:600}}>Google Drive Link</span>}
+            </div>
+            
+            <div style={{display:"flex",justifyContent:"space-between",fontSize:"0.72rem",color:cMut,marginTop:10}}>
+              <span>Size: {note.size}</span>
+              {note.source === "Google Drive" ? (
+                <a href={note.data} target="_blank" style={{color:p,fontWeight:700,cursor:"pointer", textDecoration:"none"}}>🔗 Open Drive Assets</a>
+              ) : (
+                <span onClick={()=>{const a=document.createElement("a");a.href=note.data;a.download=note.fileName;a.click();}} style={{color:p,fontWeight:700,cursor:"pointer"}}>⬇ Download File</span>
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function ContactPage({fbs,db,settings,cCard,cBdr,inpS,p,Btn}){
+  const [m,setM]=useState("");
+  return (
+    <div style={{maxWidth:600,margin:"0 auto", width:"100%"}}>
+      <textarea style={{...inpS,minHeight:100}} placeholder="Write feedback description..." value={m} onChange={e=>setM(e.target.value)}/>
+      <button onClick={()=>{ if(!m.trim())return; db.ref("portal_fbs").push({msg:m,date:new Date().toLocaleDateString("en-IN")}); setM(""); alert("✅ Feedback received!"); }} style={Btn(p)}>Transmit Feedback</button>
+    </div>
+  );
+}
+
+function LoginPage({loginUser,nav,users,cCard,cBdr,inpS,p,Btn}){
+  const [r,setR]=useState(""); const [ps,setPs]=useState("");
+  const go = () => {
+    const inputRoll = r.trim().toUpperCase();
+    if(inputRoll === "ADMIN" && ps === ADMIN_PASS) {
+      loginUser({admin:true, name:"University Master Admin"});
+      nav("home");
+    } else {
+      const u = users.find(x => x.roll === inputRoll && x.pass === ps);
+      if(u) { loginUser(u); nav("home"); } else { alert("Invalid credentials!"); }
+    }
+  };
+  return (
+    <div style={{maxWidth:400,margin:"4rem auto",background:cCard,border:`1px solid ${cBdr}`,padding:"2rem",borderRadius:16, width:"100%"}}>
+      <h3 style={{fontWeight:800,marginBottom:15}}>Authorized Account Sign In</h3>
+      <input style={inpS} placeholder="Roll Number" value={r} onChange={e=>setR(e.target.value)}/>
+      <input type="password" style={inpS} placeholder="Password" value={ps} onChange={e=>setPs(e.target.value)}/>
+      <button onClick={go} style={{...Btn(p),width:"100%"}}>Verify Account Session</button>
+    </div>
+  );
+}
+
+function IPill({icon, label, val}){
+  return (
+    <div style={{padding:"8px 12px", background:"rgba(0,0,0,0.03)", borderRadius:8, width:"100%"}}>
+      <span style={{marginRight:6}}>{icon}</span>
+      <span style={{fontSize:"0.74rem", fontWeight:600, display:"block", color:"gray"}}>{label}</span>
+      <span style={{fontSize:"0.84rem", fontWeight:700}}>{val}</span>
+    </div>
+  );
+}
+
+function SignupPage({loginUser,nav,users,cCard,cBdr,inpS,lblS,g,Btn}){
+  const [f,setF]=useState({name:"",roll:"",branch:"",pass:""});
+  const go=()=>{
+    const r=f.roll.replace(/\s+/g,'').toUpperCase(); if(!f.name||!r||!f.pass) return;
+    if(users.find(x=>x.roll===r)){alert("Roll number already registered!"); return;}
+    const nu={id:Date.now(),name:f.name,roll:r,branch:f.branch,pass:f.pass,date:new Date().toLocaleDateString("en-IN")};
+    db.ref("portal_users").push(nu); loginUser(nu); nav("home");
+  };
+  return (
+    <div style={{maxWidth:400,margin:"4rem auto",background:cCard,border:`1px solid ${cBdr}`,padding:"2rem",borderRadius:16, width:"100%"}}>
+      <h3 style={{fontWeight:800,marginBottom:15}}>Student Portal Sign up</h3>
+      <input style={inpS} placeholder="Full Name" value={f.name} onChange={e=>setF({...f,name:e.target.value})}/>
+      <input style={inpS} placeholder="Roll Number" value={f.roll} onChange={e=>setF({...f,roll:e.target.value})}/>
+      <input style={inpS} placeholder="Branch" value={f.branch} onChange={e=>setF({...f,branch:e.target.value})}/>
+      <input type="password" style={inpS} placeholder="Password" value={f.pass} onChange={e=>setF({...f,pass:e.target.value})}/>
+      <button onClick={go} style={{...Btn(g),width:"100%"}}>Create Account</button>
+    </div>
+  );
+}
+
+function ProfilePage({user,regs,data,cCard,cBdr,p}){
+  return (
+    <div style={{background:cCard,border:`1px solid ${cBdr}`,padding:"2rem",borderRadius:16, width:"100%"}}>
+      <h2>Target Identity Account: {user.name}</h2>
+      <p style={{color:p,fontWeight:700,marginTop:4}}>{user.roll} — {user.branch}</p>
+    </div>
+  );
+}
+
+function AdminPage({data,users,fbs,regs,notes,db,settings,cCard,cBdr,lblS,inpS,p,sec,g,Btn,cMut}){
+  const [tab,setTab]=useState("content"); const [ck,setCk]=useState("clubs");
+  const [f,setF]=useState({title:"",desc:"",emoji:"🏛️",tag:"UPCOMING",venue:"",organizer:"",photo:"",videoUrl:""});
+  const [notice,setNotice]=useState("");
+  const [userSearch, setUserSearch] = useState("");
+  const uploadPhotoBlock = (e) => {
+    const file = e.target.files[0]; if(!file) return;
+    const r = new FileReader();
+    r.onload=(ev)=>{ setF({...f, photo: ev.target.result}); }; r.readAsDataURL(file);
+  };
+
+  const handleHomeHeroUpload = (e) => {
+    const file = e.target.files[0];
+    if(!file) return;
+    if(file.size > 6*1024*1024){alert("Image must be under 6MB chunks boundaries!"); return;}
+    const r = new FileReader();
+    r.onload=(ev)=>{
+      db.ref("portal_settings/homeHeroImg").set(ev.target.result);
+      alert("🎉 Home Page Main Campus View changed successfully!");
+    };
+    r.readAsDataURL(file);
+  };
+  const submit=()=>{
+    if(!f.title.trim()) return;
+    db.ref(`portal_data/${ck}`).push().set({...f, id:Date.now()});
+    setF({title:"",desc:"",emoji:"🏛️",tag:"UPCOMING",venue:"",organizer:"",photo:"",videoUrl:""});
+    alert("🚀 Program pushed live successfully!");
+  };
+  const wipeUserAccount = (firebaseKey) => {
+    if(confirm("Wipe this student profile ledger permanently from cloud datastores?")) {
+      db.ref(`portal_users/${firebaseKey}`).remove();
+    }
+  };
+
+  const filteredUsers = users.filter(u => 
+    u.name?.toLowerCase().includes(userSearch.toLowerCase()) || 
+    u.roll?.toLowerCase().includes(userSearch.toLowerCase())
+  );
+  return (
+    <div style={{width:"100%"}}>
+      <div style={{display:"flex",gap:6,marginBottom:15,flexWrap:"wrap", width:"100%"}}>
+        <button onClick={()=>setTab("content")} style={Btn(tab==="content"?p:cBdr,tab==="content"?"#fff":"#000")}>➕ Add Material Modules</button>
+        <button onClick={()=>setTab("wipe")} style={Btn(tab==="wipe"?p:cBdr,tab==="wipe"?"#fff":"#000")}>🗑️ Content Wiping Panel</button>
+        <button onClick={()=>setTab("logs")} style={Btn(tab==="logs"?p:cBdr,tab==="logs"?"#fff":"#000")}>👥 Enrolled Student Logs & Override Search</button>
+        <button onClick={()=>setTab("props")} style={Btn(tab==="props"?p:cBdr,tab==="props"?"#fff":"#000")}>⚙️ Central Settings Override</button>
+      </div>
+
+      {tab==="content" && (
+        <div style={{background:cCard,border:`1px solid ${cBdr}`,padding:"1.5rem",borderRadius:16, width:"100%"}}>
+          <label style={lblS}>Target Module Category</label>
+          <select style={inpS} value={ck} onChange={e=>setCk(e.target.value)}>{CATS.map(c=><option key={c.key} value={c.key}>{c.label}</option>)}</select>
+          <input style={inpS} placeholder="Program Title Name" value={f.title} onChange={e=>setF({...f,title:e.target.value})}/>
+          <input style={inpS} placeholder="Venue Location Map" value={f.venue} onChange={e=>setF({...f,venue:e.target.value})}/>
+          <input style={inpS} placeholder="Coordinator Organizer Department" value={f.organizer} onChange={e=>setF({...f,organizer:e.target.value})}/>
+          <input style={inpS} placeholder="Video Overview URL Link" value={f.videoUrl} onChange={e=>setF({...f,videoUrl:e.target.value})}/>
+          <textarea style={{...inpS,minHeight:60}} placeholder="Description parameters strings specifications..." value={f.desc} onChange={e=>setF({...f,desc:e.target.value})}/>
+          <label style={lblS}>Attach Banner Poster Photo</label><input type="file" accept="image/*" onChange={uploadPhotoBlock}/><br/><br/>
+          <button onClick={submit} style={Btn(p)}>Compile Program Live</button>
+          <hr style={{margin:"20px 0",borderColor:cBdr}}/>
+          <input style={inpS} placeholder="Type flashing notice strings information alert..." value={notice} onChange={e=>setNotice(e.target.value)}/>
+          <button onClick={()=>{ if(!notice.trim())return; db.ref("portal_data/notices").push({text:notice,date:new Date().toLocaleDateString("en-IN")}); setNotice(""); alert("📢 Notice banner published dynamic streams successfully!"); }} style={Btn(sec)}>Publish Alert Ticker</button>
+        </div>
+      )}
+
+      {tab==="wipe" && (
+        <div style={{background:cCard,border:`1px solid ${cBdr}`,padding:"1.5rem",borderRadius:16, width:"100%"}}>
+          <h4 style={{fontWeight:800,marginBottom:10}}>📢 Flashing Marquee Notices Data Matrix:</h4>
+          {data.notices ? Object.keys(data.notices).map(k => (
+            <div key={k} style={{display:"flex",justifyContent:"space-between",alignItems:"center",background:cBdr,padding:10,borderRadius:10,marginBottom:6,fontSize:"0.82rem", flexWrap:"wrap", gap:10}}>
+              <span>{data.notices[k].text}</span><span onClick={()=>db.ref(`portal_data/notices/${k}`).remove()} style={{color:"#ef4444",fontWeight:700,cursor:"pointer"}}>Wipe Notice 🗑️</span>
+            </div>
+          )) : <p>No notices found running channels.</p>}
+          {CATS.map(c => {
+            const innerList = data[c.key] ? data[c.key] : {};
+            return (
+              <div key={c.key} style={{marginTop:12,borderTop:`1px solid ${cBdr}`,paddingTop:8, width:"100%"}}>
+                <h5 style={{fontWeight:700}}>{c.label} Target Active Nodes:</h5>
+                {Object.keys(innerList).length === 0 ? <p style={{fontSize:"0.74rem"}}>Empty tracking nodes.</p> : Object.keys(innerList).map(nk=>(
+                  <div key={nk} style={{display:"flex",justifyContent:"space-between",background:cBdr,padding:6,borderRadius:8,marginTop:4,fontSize:"0.78rem", flexWrap:"wrap", gap:10}}>
+                    <span>⛳ Title Object: <strong>{innerList[nk].title}</strong></span><span onClick={()=>{if(confirm("Wipe element node?"))db.ref(`portal_data/${c.key}/${nk}`).remove()}} style={{color:"#ef4444",fontWeight:700,cursor:"pointer"}}>Purge Asset 🗑️</span>
+                  </div>
+                ))}
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {tab==="logs" && (
+        <div style={{background:cCard,border:`1px solid ${cBdr}`,padding:"1.5rem",borderRadius:16, width:"100%"}}>
+          <h4>👥 Live Student Identity Registers</h4>
+          <input style={{...inpS, marginTop:10, padding:"12px"}} placeholder="🔍 Type Name or Roll Number parameter to trace logs..." value={userSearch} onChange={e=>setUserSearch(e.target.value)}/>
+          
+          <div style={{marginTop:15, display:"flex", flexDirection:"column", gap:10, width:"100%"}}>
+            {filteredUsers.length === 0 ? <p style={{color:cMut, fontSize:"0.82rem"}}>No profiles tracked variables configurations parameters found.</p> : 
+              filteredUsers.map(st => (
+                <div key={st.id} style={{background:cBdr, padding:12, borderRadius:12, display:"flex", justifyContent:"space-between", alignItems:"center", flexWrap:"wrap", gap:10}}>
+                  <div>
+                    <strong style={{fontSize:"0.95rem", color:p}}>{st.name}</strong> 
+                    <span style={{fontSize:"0.85rem", color:cMut, marginLeft:12}}>Roll key: {st.roll} | Branch Specialization: {st.branch || "N/A"}</span>
+                  </div>
+                  <button onClick={() => wipeUserAccount(st.firebaseKey)} style={{background:"#ef4444", color:"#fff", border:"none", padding:"6px 12px", borderRadius:8, fontSize:"0.75rem", fontWeight:700, cursor:"pointer"}}>Wipe Student Profile 🗑️</button>
+                </div>
+              ))
+            }
+          </div>
+
+          <hr style={{margin:"30px 0", borderColor:cBdr}}/>
+          <h4 style={{marginBottom:10}}>Real-time Club/Event Registry</h4>
+          {Object.keys(regs).length===0 ? <p style={{fontSize:"0.82rem",color:cMut}}>No alignment structures logged parameters assets arrays.</p> : Object.keys(regs).map(k=>(
+            <div key={k} style={{background:cBdr,padding:10,borderRadius:10,marginTop:8,fontSize:"0.8rem", width:"100%"}}>
+              <strong style={{color:p}}>{k.toUpperCase().replace("_"," | MATRIX MODULE ID: ")} Logs Map</strong>
+              <ul style={{paddingLeft:15,marginTop:4}}>{users.filter(u=>regs[k].includes(u.id)).map(st=><li key={st.id}><strong>{st.name}</strong> ({st.roll}) — Branch Group: {st.branch}</li>)}</ul>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {tab==="props" && (
+        <div style={{background:cCard,border:`1px solid ${cBdr}`,padding:"1.5rem",borderRadius:16, width:"100%"}}>
+          <label style={lblS}>Site Title Banner Name</label>
+          <input style={inpS} value={settings.siteName||""} onChange={e=>db.ref("portal_settings/siteName").set(e.target.value)}/>
+          
+          <label style={lblS}>🏠 Home Page Hero Image Direct Online URL link</label>
+          <input type="file" accept="image/*" onChange={handleHomeHeroUpload} style={{marginBottom:"1.5rem"}}/>
+       
+          <label style={lblS}>Official Support Email ID</label>
+          <input style={inpS} value={settings.supportEmail || ""} onChange={e=>db.ref("portal_settings/supportEmail").set(e.target.value.trim())}/>
+          
+          <label style={lblS}>Phone Support Helpline Number</label>
+          <input style={inpS} value={settings.phoneHelpline || ""} onChange={e=>db.ref("portal_settings/phoneHelpline").set(e.target.value.replace(/\s+/g,''))}/>
+
+          <label style={lblS}>Primary Anchor Instagram ID</label><input style={inpS} value={settings.igPrimary||""} onChange={e=>db.ref("portal_settings/igPrimary").set(e.target.value.replace(/@/g,''))}/>
+          <label style={lblS}>Secondary Alternate Updates ID</label><input style={inpS} value={settings.igSecondary||""} onChange={e=>db.ref("portal_settings/igSecondary").set(e.target.value.replace(/@/g,''))}/>
+          <label style={lblS}>Campus Clubs Guild Handle ID</label><input style={inpS} value={settings.igClubs||""} onChange={e=>db.ref("portal_settings/igClubs").set(e.target.value.replace(/@/g,''))}/>
+          <label style={lblS}>Sports Tournament Arena ID</label><input style={inpS} value={settings.igSports||""} onChange={e=>db.ref("portal_settings/igSports").set(e.target.value.replace(/@/g,''))}/>
+          <label style={lblS}>WhatsApp Helpline System Reference Phone Number Link</label><input style={inpS} value={settings.waNumber||""} onChange={e=>db.ref("portal_settings/waNumber").set(e.target.value.replace(/\s+/g,''))}/>
+          
+          <p style={{fontSize:"0.8rem",color:"#16a34a",fontWeight:700}}>✅ Configuration parameters broadcasted over cloud stack!</p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function DetailModal({item,close,cCard,cBdr,cMut,p}){
+  return (
+    <div style={{position:"fixed",inset:0,background:"rgba(15,23,42,0.6)",zIndex:300,display:"flex",alignItems:"center",justifyContent:"center",padding:"1rem",backdropFilter:"blur(4px)"}} onClick={close}>
+      <div style={{background:cCard,padding:"1.8rem",borderRadius:20,maxWidth:500,width:"100%",boxShadow:"0 20px 40px rgba(0,0,0,0.2)"} } onClick={e=>e.stopPropagation()}>
+        <div style={{display:"flex",justifyContent:"space-between"}}><h2>{item.emoji} {item.title}</h2><button onClick={close} style={{background:"none",border:"none",fontSize:"1.1rem",cursor:"pointer",color:cMut}}>✕</button></div>
+        {item.photo && <div style={{width:"100%",height:165,borderRadius:10,overflow:"hidden",marginTop:10}}><img src={item.photo} style={{width:"100%",height:"100%",objectFit:"cover"}} alt=""/></div>}
+        <p style={{color:cMut,marginTop:10,fontSize:"0.88rem",lineHeight:1.5}}>{item.desc}</p>
+        {item.videoUrl && <div style={{marginTop:10,fontSize:"0.8rem",fontWeight:700,background:"rgba(37,99,235,0.05)",padding:8,borderRadius:8}}>🔗 Video Reference Overview Track Link: <a href={item.videoUrl} target="_blank" style={{color:p,wordBreak:"break-all"}}>{item.videoUrl}</a></div>}
+        <div style={{marginTop:12,fontSize:"0.8rem",display:"grid",gridTemplateColumns:"repeat(auto-fit, minmax(130px, 1fr))",gap:8}}>
+          <IPill icon="📍" label="Venue Location" val={item.venue || "UCET Base Labs"}/>
+          <IPill icon="👨‍💼" label="Coordinator Board" val={item.organizer || "University Board"}/>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function AboutPage(){ return null; }
+function FooterComp(){ return null; }
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
+</script>
+</body>
+</html>
